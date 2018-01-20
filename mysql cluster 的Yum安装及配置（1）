@@ -1,0 +1,87 @@
+环境：虚拟机中分配的3个虚拟机系统分别为centos71，centos71，centos7-manager。
+设计如下centos71与centos72 分别作数据节点和sql节点。centos7-manager作为管理节点。
+由于安装时没有选择网络，导致虚拟机无法上网。解决办法：
+ >   vim /etc/sysconfig/network-scripts/ifcfg-ens33 
+将文件中
+ > ONBOOT=no     
+改为
+ >   ONBOOT=yes
+
+之后刷新network.service,即可上网
+
+  >  $ service network start
+  > Starting network (via systemctl):                          [  OK  ]
+
+使用yum安装，yum会自动解决依赖问题。
+
+使用rpm的方式时候，依赖问题需要自己解决（主要是缺少python-paramiko，python2-crypto。运气不好也会遇到
+<code>
+‘Command "/usr/bin/python -u -c "import setuptools, tokenize;__file__='/tmp/pip-build-wUzz6E/pycrypto/setup.py';f=getattr(tokenize, 'open', open)(__file__);code=f.read().replace('\r\n', '\n');f.close();exec(compile(code, __file__, 'exec'))" install --record /tmp/pip-RBAH0V-record/install-record.txt --single-version-externally-managed --compile" failed with error code 1 in /tmp/pip-build-wUzz6E/pycrypto/’
+  </code>
+  这样的错误）。
+
+由于新装的Centos7系统需要更新
+
+  >  sudo yum update   或是 sudo yum upgrade
+
+更新完成之后，配置yum的mysql的源，在[mysql yum 源](https://dev.mysql.com/downloads/repo/yum/) 选择与自己系统的合适的rpm文件。我下载的是Red Hat Enterprise Linux 7 / Oracle Linux 7.
+> $ sudo yum install mysql-cluster-community-server
+>    ...
+>   No package mysql-cluster-community-server available.
+
+这是因为mysql 源配置不成功造成的！
+>    sudo rpm -Uhv mysql57-community-release-el7-11.noarch.rpm
+出现
+>    Updating / installing...
+>      1:mysql57-community-release-el7-11 ################################# [100%]
+
+说明安装成功！
+
+查看mysql的源信息
+
+ >   yum repolist  all  | grep mysql
+
+
+>    $ sudo yum-config-manager  --disable mysql57-community
+>    $ sudo yum-config-manager  --enable mysql-cluster-7.6-community
+>    $ yum repolist  all  | grep mysql
+
+
+
+>  $ sudo yum install mysql-cluste-community-server 
+>    Error: Package: mysql-cluster-community-client-7.6.3-1.el7.x86_64 (mysql-cluster-7.6-community)
+>              Requires: perl(Class::MethodMaker)
+>    Error: Package: akonadi-mysql-1.9.2-4.el7.x86_64 (@anaconda)
+>              Requires: mariadb-server
+>              Removing: 1:mariadb-server-5.5.56-2.el7.x86_64 (@anaconda)
+>                  mariadb-server = 1:5.5.56-2.el7
+>              Obsoleted By: mysql-cluster-community-server-7.6.3-1.el7.x86_64 (mysql-cluster-7.6-community)
+>                  Not found
+
+以上的错误主要是因为未更新perl。根据[官网手册](https://dev.mysql.com/doc/mysql-yum-repo-quick-guide/en/)给出的指导
+
+
+
+el7中noarch.rpm无法下载。需要到[pkgs.org--perl](https://centos.pkgs.org/7/epel-x86_64/epel-release-7-11.noarch.rpm.html)下载配置epel-release-***.rpm即可。在下载el7
+
+ >   $ wget http://dl.fedoraproject.org/pub/epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm
+
+    下载成功后
+
+ >  $ rpm -Uhv epel-release-7-11.noarch.rpm
+
+对于
+<code>    Error: Package: akonadi-mysql-1.9.2-4.el7.x86_64 (@anaconda) Requires: mariadb-server Removing: 1:mariadb-server-5.5.56-2.el7.x86_64 (@anaconda) mariadb-server = 1:5.5.56-2.el7 Obsoleted By: mysql-cluster-community-server-7.6.3-1.el7.x86_64 (mysql-cluster-7.6-community) Not found
+</code>
+解决办法
+>    $ sudo yum erase mysql
+>    $ sudo yum install mysql-cluste-community-server 
+即可正确安装！
+
+安装管理节点
+>    $ sudo  yum install mysql-cluster-community-management-server
+
+安装数据节点
+>    sudo yum install mysql-cluster-community-data-node
+
+总结：对于安装mysql cluster 请参看[官方文档](https://dev.mysql.com/doc/mysql-yum-repo-quick-guide/en/#repo-qg-yum-installing)
