@@ -4,4 +4,4 @@ this is my repo
 ## my profile
 a coder 
 
-[readme](./readme.md)
+[index](./index.html)
